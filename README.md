@@ -1,6 +1,10 @@
 # Pico-W MiFlora BLE Datalogger
 
-This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora plant sensor. It scans for the sensor via BLE, reads its data, and logs it to a text file on an SD card with a timestamp.
+This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora plant sensor. It operates in two modes:
+
+1. **Client Mode:** Scans for the sensor via BLE, reads its data (temperature, moisture, light, conductivity, and battery), and logs it to a text file on an SD card with a timestamp .
+
+2. **Server Mode:** On boot (or after a logging cycle), it advertises as "**MiFlora Logger**" for 30 seconds, allowing a BLE client (like your phone) to connect and write a new time to the internal Real-Time Clock (RTC).
 
 ## Key Features
 
@@ -8,6 +12,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Reads temperature, moisture, light, conductivity, and battery level.
 * Saves data to a `miflora_log.txt` file on an SD card.
 * Adds an ISO 8601 timestamp (e.g., `2025-10-23T20:30:00`) to each reading using the Pico's internal Real-Time Clock (RTC).
+* Acts as a BLE peripheral (server) to allow remote time-syncing of the RTC.
 
 ## Hardware Required
 
@@ -15,6 +20,8 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Xiaomi MiFlora plant sensor
 * MicroSD card module (SPI)
 * MicroSD card (formatted as FAT32)
+* A smartphone with a BLE utility app (like nRF Connect)
+    - **TODO:** Add link to custom app when available
 
 ## Wiring
 
@@ -45,27 +52,71 @@ static const char * target_mac_string = "5C:85:7E:13:17:F9"; // <-- CHANGE THIS
 
 Replace the address with your sensor's MAC address.
 
-### **Set the Time**
+### **Set the Time (Two Methods)**
 
-The Pico's internal RTC does not have a battery and will reset every time it loses power. You must set the correct time in `main.c` before flashing the code.
+The Pico's internal RTC does not have a battery and will reset every time it loses power. You must set the correct time.
+
+**Method A:** Set Time via Bluetooth LE (Recommended)
+This is the new, flexible method that doesn't require re-flashing the code.
+
+1. Power on or reset your Pico W.
+
+2. Open a BLE utility app (like **nRF Connect for Mobile**).
+
+3. For 30 seconds, the Pico will advertise as "**MiFlora Logger**".
+
+4. Scan and connect to the "MiFlora Logger" device.
+
+5. Find the Custom Service with UUID: `0xAAA0`
+
+6. Inside this service, find the Custom Characteristic with UUID: `0xAAA1` (it has `WRITE` properties).
+
+7. Tap the "write" icon and prepare your data. You must send a **7-byte** packet in the following format:
+
+    * `[Year_H, Year_L, Month, Day, Hour, Min, Sec]`
+
+    * The Year is a 16-bit integer (little-endian).
+
+    **Example:** To set the time to **October 25, 2025, 17:30:00**
+
+    * Year = 2025 = `0x07E9`
+
+    * Year_H = `0xE9`
+
+    * Year_L = `0x07`
+
+    * Month = 10 = `0x0A`
+
+    * Day = 25 = `0x19`
+
+    * Hour = 17 = `0x11`
+
+    * Min = 30 = `0x1E`
+
+    * Sec = 00 = `0x00`
+
+    * **Byte String to Write:** `E9070A19111E00`
+
+8. Write this value to the characteristic. Check your serial monitor, which will print: `RTC Write: SUCCESS. RTC has been synced.`
+
+9. Disconnect from the device. The Pico will now proceed with its datalogging.
+
+**Method B: Set Time in Code (Hardcoded)**
+You can still set a "default" time in `main.c` before flashing. This will be used until you set the time via BLE.
 
 Find this block in the `main()` function:
 
-```c
+    ```c
     datetime_t t = {
         .year  = 2025,
         .month = 10,
         .day   = 23,
-        .dotw  = 4,    // Thursday
-        .hour  = 20,   // 8 PM
-        .min   = 30,
-        .sec   = 0
+        // ...
     };
-```
+    ```
 
-Update these values to the current date and time. For example, for October 23, 2025, 8:30 PM
+Update these values to the current date and time.
 
-**Note:** For a long-term solution, you would need to add an external battery-backed RTC (like a DS3231) or implement NTP time-sync over Wi-Fi.
 
 ### **Build and Flash**
 

@@ -25,7 +25,7 @@ endif()
 # ====================================================================================
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 
-# --- Added from sd_card_fatfs example ---
+# --- Add sd_card_pico library using FetchContent ---
 include(FetchContent)
 FetchContent_Declare(
     sd_card_pico
@@ -49,9 +49,8 @@ project(pico_miflora_datalogger C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# --- Added from sd_card_fatfs example ---
+# Add sd_card_pico library source directory to the build
 add_subdirectory(${sd_card_pico_SOURCE_DIR}/src ${sd_card_pico_BINARY_DIR}/src)
-# ----------------------------------------
 
 # Add executable.
 # We now include main.c and the hw_config.c for the SD card
@@ -59,6 +58,9 @@ add_executable(pico_miflora_datalogger
     main.c
     hw_config.c
 )
+
+# Process .gatt file into a C header
+pico_btstack_make_gatt_header(pico_miflora_datalogger PRIVATE "${CMAKE_CURRENT_LIST_DIR}/datalogger.gatt")
 
 target_compile_definitions(pico_miflora_datalogger PRIVATE
     RUNNING_AS_CLIENT=1
@@ -72,16 +74,13 @@ pico_enable_stdio_uart(pico_miflora_datalogger 0)
 pico_enable_stdio_usb(pico_miflora_datalogger 1)
 
 # Add the standard library to the build
-# This now links libraries from BOTH projects
 target_link_libraries(pico_miflora_datalogger
         PRIVATE
-        # From miflora scanner 
         pico_stdlib
         pico_cyw43_arch_none
         pico_btstack_ble
         pico_btstack_cyw43
         
-        # From sd_card_fatfs 
         hardware_pio
         hardware_dma
         hardware_spi

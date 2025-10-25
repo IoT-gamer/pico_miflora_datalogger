@@ -1,0 +1,12 @@
+// Datalogger Service Definition
+//
+// This service allows a connected client (e.g., a phone)
+// to configure the datalogger.
+
+// Custom Datalogger Service
+PRIMARY_SERVICE, 0xAAA0
+
+// Custom Timestamp Characteristic
+// Allows a client to write 7 bytes to set the RTC
+// Format: [Year_H, Year_L, Month, Day, Hour, Min, Sec]
+CHARACTERISTIC, 0xAAA1, WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
