@@ -25,7 +25,8 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 
 ## Wiring
 
-This is critical! The Pico W's onboard CYW43 wireless chip uses `spi0`. To avoid conflicts, this project is configured to use `spi1` for the SD card .
+Use `hw_config.c` to configure the pins for your SD card module.
+The default setting is configured to use `spi1` for the SD card .
 
 Connect your SD card reader to the following `spi1` pins:
 
