@@ -1,5 +1,7 @@
 # Pico-W MiFlora BLE Datalogger
 
+[![Work in Progress](https://img.shields.io/badge/status-work%20in%20progress-yellow)](https://example.com/your-project-status-page)
+
 This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora plant sensor. It operates in two modes:
 
 1. **Client Mode:** Scans for the sensor via BLE, reads its data (temperature, moisture, light, conductivity, and battery), and logs it to a text file on an SD card with a timestamp .
@@ -20,8 +22,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Xiaomi MiFlora plant sensor
 * MicroSD card module (SPI)
 * MicroSD card (formatted as FAT32)
-* A smartphone with a BLE utility app (like nRF Connect)
-    - **TODO:** Add link to custom app when available
+* A smartphone with an example companion app: [Flutter MiFlora Companion App](https://github.com/IoT-gamer/flutter_miflora_companion_app/tree/main)
 
 ## Wiring
 
@@ -62,45 +63,19 @@ This is the new, flexible method that doesn't require re-flashing the code.
 
 1. Power on or reset your Pico W.
 
-2. Open a BLE utility app (like **nRF Connect for Mobile**).
+2. Open the [Flutter MiFlora Companion App](https://github.com/IoT-gamer/flutter_miflora_companion_app/tree/main) on your smartphone.
 
 3. For 30 seconds, the Pico will advertise as "**MiFlora Logger**".
 
-4. Scan and connect to the "MiFlora Logger" device.
+4. Tap the "Scan" icon in the app.
 
-5. Find the Custom Service with UUID: `0xAAA0`
+5. Your "MiFlora Logger" should appear..
 
-6. Inside this service, find the Custom Characteristic with UUID: `0xAAA1` (it has `WRITE` properties).
+6. Tap on it to connect.
 
-7. Tap the "write" icon and prepare your data. You must send a **7-byte** packet in the following format:
+7. Once connected, tap the "Sync Current Time" button.
 
-    * `[Year_H, Year_L, Month, Day, Hour, Min, Sec]`
-
-    * The Year is a 16-bit integer (little-endian).
-
-    **Example:** To set the time to **October 25, 2025, 17:30:00**
-
-    * Year = 2025 = `0x07E9`
-
-    * Year_H = `0xE9`
-
-    * Year_L = `0x07`
-
-    * Month = 10 = `0x0A`
-
-    * Day = 25 = `0x19`
-
-    * Hour = 17 = `0x11`
-
-    * Min = 30 = `0x1E`
-
-    * Sec = 00 = `0x00`
-
-    * **Byte String to Write:** `E9070A19111E00`
-
-8. Write this value to the characteristic. Check your serial monitor, which will print: `RTC Write: SUCCESS. RTC has been synced.`
-
-9. Disconnect from the device. The Pico will now proceed with its datalogging.
+8. Disconnect from the device. The Pico will now proceed with its datalogging.
 
 **Method B: Set Time in Code (Hardcoded)**
 You can still set a "default" time in `main.c` before flashing. This will be used until you set the time via BLE.
