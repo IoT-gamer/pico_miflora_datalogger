@@ -124,3 +124,5 @@ This project relies on several key libraries and examples:
 * **BTstack** for Bluetooth LE functionality on the Pico W.
 
 * [**no-OS-FatFS-SD-SDIO-SPI-RPi-Pico**](https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico) library by Carlk3 for the SD card and FatFs driver
+
+* [**miflora**](https://github.com/basnijholt/miflora) Bas Nijholt's MiFlora BLE protocol documentation and Python library.
