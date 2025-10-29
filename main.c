@@ -2,7 +2,7 @@
  * Miflora Sensor (BLE) for Raspberry Pi Pico W
  * * With SD Card Datalogging and Timestamps!
  * * Also acts as a peripheral to allow RTC syncing.
- */
+*/
 
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +33,7 @@
 #define LED_SLOW_FLASH_DELAY_MS 1000
 
 // --- Miflora Definitions ---
-static const char * target_mac_string = "5C:85:7E:13:17:F9"; // <-- UPDATE THIS
+static const char * target_mac_string = "5C:85:7E:13:17:F9";  // Change to your sensor's MAC address
 static bd_addr_t target_mac_addr;
 
 #define TARGET_SERVICE_UUID 0x1204
@@ -81,7 +81,8 @@ static btstack_timer_source_t heartbeat;
 static miflora_reading_t current_reading; // Store the latest complete reading
 
 // --- Server Role Globals ---
-static hci_con_handle_t server_con_handle = HCI_CON_HANDLE_INVALID; // Server connection (from phone)
+static hci_con_handle_t server_con_handle = HCI_CON_HANDLE_INVALID;
+// Server connection (from phone)
 extern uint8_t const profile_data[]; // From datalogger.h
 
 // Define our advertisement data
@@ -98,7 +99,6 @@ static const uint8_t adv_data_len = sizeof(adv_data);
 // --- Modal Logic Timers ---
 static btstack_timer_source_t server_advertisement_timer;
 static btstack_timer_source_t start_scan_delay_timer;
-
 // Temporary storage for read data
 static uint8_t  temp_read_value[30];
 static uint16_t temp_read_value_length;
@@ -106,6 +106,7 @@ static uint16_t temp_read_value_length;
 // --- SD Card Globals ---
 static FATFS fs;
 static bool sd_mounted = false;
+static bool rtc_is_synced = false; // Flag to track RTC sync status
 // ---------------------------------------------
 
 
@@ -206,12 +207,12 @@ static void log_reading_to_sd(miflora_reading_t *reading) {
 
     // --- *** Write timestamp + data as a CSV-like string *** ---
     int chars_written = f_printf(&fil, "%s,Temp:%.1f,Light:%lu,Moisture:%u,Conductivity:%u,Battery:%u\n",
-             timestamp_buf,
-             reading->temperature,
-             reading->light,
-             reading->moisture,
-             reading->conductivity,
-             reading->battery);
+            timestamp_buf,
+            reading->temperature,
+            reading->light,
+            reading->moisture,
+            reading->conductivity,
+            reading->battery);
 
     if (chars_written < 0) {
         printf("f_printf failed\n");
@@ -227,7 +228,7 @@ static void log_reading_to_sd(miflora_reading_t *reading) {
 }
 
 
-// +++ NEW SERVER FUNCTIONS +++
+// +++ SERVER FUNCTIONS +++
 
 /**
  * @brief Start advertising the Pico as a server
@@ -261,7 +262,7 @@ static uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t a
 /**
  * @brief ATT write callback - This is where we sync the RTC
  * This function is called when a client writes to our 0xAAA1 characteristic.
- */
+*/
 static int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t transaction_mode, uint16_t offset, uint8_t *buffer, uint16_t buffer_size) {
     UNUSED(connection_handle);
     UNUSED(transaction_mode);
@@ -273,7 +274,7 @@ static int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_h
         // We expect 7 bytes: [Year_H, Year_L, Month, Day, Hour, Min, Sec]
         if (buffer_size != 7) {
             printf("RTC Write: Invalid buffer size. Expected 7, got %u\n", buffer_size);
-            return 0; // Error
+        return 0; // Error
         }
 
         datetime_t t;
@@ -287,58 +288,68 @@ static int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_h
 
         printf("RTC Write: Received new time %04d-%02d-%02dT%02d:%02d:%02d\n",
                 t.year, t.month, t.day, t.hour, t.min, t.sec);
-
+        
         if (!rtc_set_datetime(&t)) {
             printf("RTC Write: FAILED to set new time.\n");
         } else {
             printf("RTC Write: SUCCESS. RTC has been synced.\n");
+            rtc_is_synced = true; // Set flag on success
         }
         return 0;
     }
     return 0;
 }
 
-// +++ NEW MODAL LOGIC FUNCTIONS +++
+// +++ MODAL LOGIC FUNCTIONS +++
 
 /**
  * @brief Handler for the short delay after stopping ADV.
- * This function actually starts the MiFlora scan.
+* This function actually starts the MiFlora scan.
  */
 static void start_scan_handler(struct btstack_timer_source *ts) {
     UNUSED(ts);
     printf("ADV stop delay complete. Starting MiFlora scan.\n");
     // Now it's safe to start scanning
-    client_start(); 
+    client_start();
 }
 
 /**
  * @brief This handler fires if no phone connects to our server within the timeout.
- * It stops advertising and switches to client (MiFlora scan) mode.
+* It stops advertising and switches to client (MiFlora scan) mode.
+ * Checks rtc_is_synced flag to decide whether to scan or re-enter server mode.
  */
 static void server_timeout_handler(struct btstack_timer_source *ts) {
     UNUSED(ts);
-    printf("Server mode timed out. Stopping advertising...\n");
+    
     gap_advertisements_enable(0); // Stop advertising
 
-    // DO NOT call client_start() here.
-    // Set a 100ms timer to give the stack time to stop advertising
-    // before we start scanning. This prevents the race condition.
-    btstack_run_loop_set_timer_handler(&start_scan_delay_timer, start_scan_handler);
-    btstack_run_loop_set_timer(&start_scan_delay_timer, 100); // 100ms delay
-    btstack_run_loop_add_timer(&start_scan_delay_timer);
+    if (rtc_is_synced) {
+        printf("Server mode timed out, RTC is synced. Proceeding to scan.\n");
+        
+        // DO NOT call client_start() here.
+        // Set a 100ms timer to give the stack time to stop advertising
+        // before we start scanning.
+        // This prevents the race condition.
+        btstack_run_loop_set_timer_handler(&start_scan_delay_timer, start_scan_handler);
+        btstack_run_loop_set_timer(&start_scan_delay_timer, 100); // 100ms delay
+        btstack_run_loop_add_timer(&start_scan_delay_timer);
+    } else {
+        printf("Server mode timed out. RTC NOT synced. Restarting server mode...\n");
+        // Re-enter server mode to wait for a connection again.
+        enter_server_mode();
+    }
 }
 
 /**
  * @brief Enters the default "server" state.
  * Advertises as "MiFlora Logger" and sets a timer.
- */
+*/
 static void enter_server_mode(void){
-    // +++ THIS IS THE FIX +++
-    // First, always remove the timer. This is safe even if it's not
-    // on the list. This prevents the "add_timer" crash if we get two
+    // First, always remove the timer.
+    // This is safe even if it's not on the list.
+    // This prevents the "add_timer" crash if we get two
     // disconnect events in a row.
     btstack_run_loop_remove_timer(&server_advertisement_timer);
-
     printf("Entering server mode. Advertising for 30 seconds...\n");
     state = FLORA_IDLE; // Set state to idle (server) mode
     start_advertising(); // Start advertising as "MiFlora Logger"
@@ -365,7 +376,7 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
         if (att_status != ATT_ERROR_SUCCESS){ \
             printf("GATT Error 0x%02x, disconnecting.\n", att_status); \
             state = FLORA_IDLE; \
-            gap_disconnect(connection_handle); \
+            gap_disconnect(connection_handle);\
             break; \
         }
 
@@ -518,7 +529,6 @@ static void hci_event_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 
                 // Start in server mode
                 enter_server_mode();
-                
             } else {
                 state = FLORA_OFF;
             }
@@ -579,7 +589,6 @@ static void hci_event_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
         case HCI_EVENT_DISCONNECTION_COMPLETE:
             { 
                 hci_con_handle_t disconnected_handle = hci_event_disconnection_complete_get_connection_handle(packet);
-
                 if (server_con_handle == disconnected_handle){
                     server_con_handle = HCI_CON_HANDLE_INVALID;
                     printf("Client disconnected from our server.\n");
@@ -619,7 +628,6 @@ static void heartbeat_handler(struct btstack_timer_source *ts) {
 
     led_on = !led_on;
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-    
     // Quick flash if we are connected to *either* device
     if ((connection_handle != HCI_CON_HANDLE_INVALID || server_con_handle != HCI_CON_HANDLE_INVALID) && led_on) {
         quick_flash = !quick_flash;
@@ -640,24 +648,11 @@ int main() {
     // --- Initialize RTC ---
     printf("Initializing RTC...\n");
     rtc_init();
-    datetime_t t = {
-        .year  = 2025,
-        .month = 10,
-        .day   = 23,
-        .dotw  = 4,    // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu
-        .hour  = 20,   // 8 PM
-        .min   = 20,   // 20 minutes
-        .sec   = 0
-    };
-    if (!rtc_set_datetime(&t)) {
-        printf("RTC set failed!\n");
-    } else {
-        printf("RTC set to 2025-10-23 20:20:00\n"); // <-- UPDATE THIS
-    }
+
+    printf("RTC initialized. Waiting for time sync from app...\n");
     // ------------------------------------
 
     printf("--- Pico W Miflora Datalogger ---\n");
-
     sscanf_bd_addr(target_mac_string, target_mac_addr);
     if (cyw43_arch_init()) {
         printf("failed to initialise cyw43_arch\n");
@@ -666,9 +661,9 @@ int main() {
 
     // --- *** Mount SD Card *** ---
     // Wait for USB serial to connect (optional, but helpful for debugging)
-    while (!stdio_usb_connected()) {
-        sleep_ms(100);
-    }
+    // while (!stdio_usb_connected()) {
+    //     sleep_ms(100);
+    // }
     
     printf("Mounting SD card...\n");
     FRESULT fr = f_mount(&fs, "", 1);
@@ -684,7 +679,6 @@ int main() {
     l2cap_init();
     sm_init();
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-
     // Initialize ATT server with our new profile and callbacks
     att_server_init(profile_data, att_read_callback, att_write_callback);
 
@@ -695,7 +689,6 @@ int main() {
     
     // Register our HCI event handler to also receive ATT server events
     att_server_register_packet_handler(&hci_event_handler);
-
     // Set up LED flashing timer
     heartbeat.process = &heartbeat_handler;
     btstack_run_loop_set_timer(&heartbeat, LED_SLOW_FLASH_DELAY_MS);

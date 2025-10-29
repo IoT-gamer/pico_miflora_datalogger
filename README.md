@@ -4,9 +4,9 @@
 
 This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora plant sensor. It operates in two modes:
 
-1. **Client Mode:** Scans for the sensor via BLE, reads its data (temperature, moisture, light, conductivity, and battery), and logs it to a text file on an SD card with a timestamp .
+1. **Client Mode:** (After time-sync) Scans for the sensor via BLE, reads its data (temperature, moisture, light, conductivity, and battery), and logs it to a text file on an SD card with a timestamp.
 
-2. **Server Mode:** On boot (or after a logging cycle), it advertises as "**MiFlora Logger**" for 30 seconds, allowing a BLE client (like your phone) to connect and write a new time to the internal Real-Time Clock (RTC).
+2. **Server Mode:** On boot, it advertises as "**MiFlora Logger**" **indefinitely**. It will wait in this mode until a BLE client (like your phone) connects and writes a new time to the internal Real-Time Clock (RTC). **Datalogging will not begin until the time is synced**.
 
 ## Key Features
 
@@ -14,7 +14,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Reads temperature, moisture, light, conductivity, and battery level.
 * Saves data to a `miflora_log.txt` file on an SD card.
 * Adds an ISO 8601 timestamp (e.g., `2025-10-23T20:30:00`) to each reading using the Pico's internal Real-Time Clock (RTC).
-* Acts as a BLE peripheral (server) to allow remote time-syncing of the RTC.
+* Acts as a BLE peripheral (server) to allow remote time-syncing of the RTC. **This step is mandatory before logging will start**.
 
 ## Hardware Required
 
@@ -37,9 +37,9 @@ Connect your SD card reader to the following `spi1` pins:
 | MOSI  | `GPIO 11` |
 | MISO | `GPIO 12` |
 | CS | `GPIO 13` |
-| VCC | `3V3_OUT` (3.3V) or `VBUS` (5V) |
+| VCC | `3V3_OUT` (3.3V) or `VBUS` (5V)* |
 | GND | GND |
-
+*Note: Some SD card modules require 5V power. Check your module's specifications.
 ## How to Use
 
 ### **Configure Sensor MAC Address**
@@ -54,12 +54,9 @@ static const char * target_mac_string = "5C:85:7E:13:17:F9"; // <-- CHANGE THIS
 
 Replace the address with your sensor's MAC address.
 
-### **Set the Time (Two Methods)**
+### **Set the Time (Mandatory)**
 
-The Pico's internal RTC does not have a battery and will reset every time it loses power. You must set the correct time.
-
-**Method A:** Set Time via Bluetooth LE (Recommended)
-This is the new, flexible method that doesn't require re-flashing the code.
+The Pico's internal RTC does not have a battery and will reset every time it loses power. You must set the correct time via BLE before the device will begin datalogging.
 
 1. Power on or reset your Pico W.
 
@@ -75,24 +72,7 @@ This is the new, flexible method that doesn't require re-flashing the code.
 
 7. Once connected, tap the "Sync Current Time" button.
 
-8. Disconnect from the device. The Pico will now proceed with its datalogging.
-
-**Method B: Set Time in Code (Hardcoded)**
-You can still set a "default" time in `main.c` before flashing. This will be used until you set the time via BLE.
-
-Find this block in the `main()` function:
-
-    ```c
-    datetime_t t = {
-        .year  = 2025,
-        .month = 10,
-        .day   = 23,
-        // ...
-    };
-    ```
-
-Update these values to the current date and time.
-
+8. Disconnect from the device. The Pico will now detect that its clock is synced and will proceed to scan for the MiFlora sensor and begin datalogging.
 
 ### **Build and Flash**
 
