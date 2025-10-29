@@ -53,10 +53,12 @@ pico_sdk_init()
 add_subdirectory(${sd_card_pico_SOURCE_DIR}/src ${sd_card_pico_BINARY_DIR}/src)
 
 # Add executable.
-# We now include main.c and the hw_config.c for the SD card
 add_executable(pico_miflora_datalogger
     main.c
     hw_config.c
+    miflora_client.c
+    ble_server.c
+    sd_logger.c
 )
 
 # Process .gatt file into a C header
