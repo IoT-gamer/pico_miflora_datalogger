@@ -19,6 +19,9 @@
 #define LED_QUICK_FLASH_DELAY_MS 100 
 #define LED_SLOW_FLASH_DELAY_MS 1000 
 
+#define SYNC_TIMEOUT_MS 30000  // 30 seconds for initial RTC sync
+#define LOG_INTERVAL_MS (15 * 60 * 1000) // 15 minutes
+
 // --- Miflora Definitions ---
 static const char * target_mac_string = "5C:85:7E:13:17:F9"; // Change to your sensor's MAC address 
 
@@ -81,14 +84,24 @@ static void enter_server_mode(void){
     // First, always remove the timer. 
     btstack_run_loop_remove_timer(&server_advertisement_timer); 
     
-    printf("Entering server mode. Advertising for 30 seconds...\n"); 
-    miflora_client_set_state(FLORA_IDLE); // Set state to idle (server) mode 
-    ble_server_start_advertising(); // Start advertising as "MiFlora Logger" 
+    // Check if RTC is synced and set timer accordingly
+    bool rtc_synced = ble_server_is_rtc_synced();
+    uint32_t timeout_ms = rtc_synced ? LOG_INTERVAL_MS : SYNC_TIMEOUT_MS;
     
+    if (rtc_synced) {
+        printf("Entering server mode. Waiting %lu mins for next log cycle...\n", LOG_INTERVAL_MS / 60000);
+    } else {
+        printf("Entering server mode. Advertising for RTC sync (%lus)...\n", SYNC_TIMEOUT_MS / 1000);
+    }    
+
+    miflora_client_set_state(FLORA_IDLE); 
+    ble_server_start_advertising();
+
     // Now it is safe to set up and add the timer
     btstack_run_loop_set_timer_handler(&server_advertisement_timer, server_timeout_handler);
-    btstack_run_loop_set_timer(&server_advertisement_timer, 30000); 
-    btstack_run_loop_add_timer(&server_advertisement_timer); 
+    // Use the dynamically set timeout
+    btstack_run_loop_set_timer(&server_advertisement_timer, timeout_ms);
+    btstack_run_loop_add_timer(&server_advertisement_timer);
 }
 
 

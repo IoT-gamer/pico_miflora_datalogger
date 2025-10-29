@@ -6,7 +6,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 
 1. **Client Mode:** (After time-sync) Scans for the sensor via BLE, reads its data (temperature, moisture, light, conductivity, and battery), and logs it to a text file on an SD card with a timestamp.
 
-2. **Server Mode:** On boot, it advertises as "**MiFlora Logger**" **indefinitely**. It will wait in this mode until a BLE client (like your phone) connects and writes a new time to the internal Real-Time Clock (RTC). **Datalogging will not begin until the time is synced**.
+2. **Server Mode:** On boot (and before the clock is set), it advertises as "**MiFlora Logger**" in 30-second intervals. After its clock is synced, it switches to advertising for a long duration (e.g., 15 minutes) between sensor readings. Datalogging will not begin until the time is synced.
 
 ## Key Features
 
@@ -40,6 +40,7 @@ Connect your SD card reader to the following `spi1` pins:
 | VCC | `3V3_OUT` (3.3V) or `VBUS` (5V)* |
 | GND | GND |
 *Note: Some SD card modules require 5V power. Check your module's specifications.
+
 ## How to Use
 
 ### **Configure Sensor MAC Address**
@@ -62,7 +63,7 @@ The Pico's internal RTC does not have a battery and will reset every time it los
 
 2. Open the [Flutter MiFlora Companion App](https://github.com/IoT-gamer/flutter_miflora_companion_app/tree/main) on your smartphone.
 
-3. For 30 seconds, the Pico will advertise as "**MiFlora Logger**".
+3. The Pico will advertise as "**MiFlora Logger**". Before the time is synced, it will do this in 30-second cycles. If you miss the window, it will time out and start advertising again, so you don't need to rush.
 
 4. Tap the "Scan" icon in the app.
 
@@ -72,7 +73,7 @@ The Pico's internal RTC does not have a battery and will reset every time it los
 
 7. Once connected, tap the "Sync Current Time" button.
 
-8. Disconnect from the device. The Pico will now detect that its clock is synced and will proceed to scan for the MiFlora sensor and begin datalogging.
+8. Disconnect from the device. The Pico will now detect that its clock is synced. It will enter its long-interval logging cycle (e.g., 15 minutes), after which it will perform its first scan for the MiFlora sensor and begin datalogging.
 
 ### **Build and Flash**
 
