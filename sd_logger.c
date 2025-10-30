@@ -32,24 +32,33 @@ void sd_logger_log_reading(miflora_reading_t *reading) {
     // --- Get and format timestamp ---
     datetime_t t;
     char timestamp_buf[32]; // Buffer for "YYYY-MM-DDTHH:MM:SS" 
+    char filename_buf[32];  // Buffer for "YYYY-MM-DD.txt"
     
     if (!rtc_get_datetime(&t)) {
-        printf("Failed to get RTC time. Using 'unknown'.\n");
-        snprintf(timestamp_buf, sizeof(timestamp_buf), "unknown"); 
-    } else {
-        // Format as ISO 8601
-        snprintf(timestamp_buf, sizeof(timestamp_buf),
-                 "%04d-%02d-%02dT%02d:%02d:%02d",
-                 t.year, t.month, t.day, t.hour, t.min, t.sec); 
-    }
+        // If RTC is not set, we cannot create a daily filename.
+        // This is a critical error for this logic.
+        printf("Failed to get RTC time. Skipping log.\EN");
+        return; 
+    } 
+    
+    // Format as ISO 8601 for the log line
+    snprintf(timestamp_buf, sizeof(timestamp_buf),
+             "%04d-%02d-%02dT%02d:%02d:%02d",
+             t.year, t.month, t.day, t.hour, t.min, t.sec);
+    
+    // Format the daily filename
+    snprintf(filename_buf, sizeof(filename_buf),
+             "%04d-%02d-%02d.txt",
+             t.year, t.month, t.day);
     // ------------------------------------------
 
     FIL fil;
-    const char* const filename = "miflora_log.txt"; 
-    // Open file in append mode
-    FRESULT fr = f_open(&fil, filename, FA_OPEN_APPEND | FA_WRITE); 
+    
+    // Use the new dynamic filename_buf instead of "miflora_log.txt"
+    FRESULT fr = f_open(&fil, filename_buf, FA_OPEN_APPEND | FA_WRITE);
     if (FR_OK != fr && FR_EXIST != fr) {
-        printf("f_open(%s) error: %s (%d)\n", filename, FRESULT_str(fr), fr); 
+        // Use filename_buf in the error message
+        printf("f_open(%s) error: %s (%d)\n", filename_buf, FRESULT_str(fr), fr);
         return; 
     }
 
@@ -60,17 +69,18 @@ void sd_logger_log_reading(miflora_reading_t *reading) {
             reading->light,
             reading->moisture,
             reading->conductivity,
-            reading->battery); 
-    
+            reading->battery);
+
     if (chars_written < 0) {
-        printf("f_printf failed\n"); 
+        printf("f_printf failed\n");
     }
 
     // Close the file (this also flushes the write buffer)
-    fr = f_close(&fil); 
+    fr = f_close(&fil);
     if (FR_OK != fr) {
-        printf("f_close error: %s (%d)\n", FRESULT_str(fr), fr); 
+        printf("f_close error: %s (%d)\n", FRESULT_str(fr), fr);
     } else {
-        printf("Successfully logged reading to %s\n", filename); 
+        // Use filename_buf in the success message
+        printf("Successfully logged reading to %s\n", filename_buf);
     }
 }

@@ -12,7 +12,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 
 * Scans for a specific MiFlora sensor via Bluetooth LE.
 * Reads temperature, moisture, light, conductivity, and battery level.
-* Saves data to a `miflora_log.txt` file on an SD card.
+* Saves data to daily log files (e.g., `2025-10-30.txt`) on an SD card.
 * Adds an ISO 8601 timestamp (e.g., `2025-10-23T20:30:00`) to each reading using the Pico's internal Real-Time Clock (RTC).
 * Acts as a BLE peripheral (server) to allow remote time-syncing of the RTC. **This step is mandatory before logging will start**.
 
@@ -105,13 +105,15 @@ The Pico's internal RTC does not have a battery and will reset every time it los
 **Note:** Ensure your SD card is inserted into the SD card module before powering on the Pico W.
 
 ## Log File Output
-After booting, the Pico will scan for the sensor. Once it connects and takes a reading, it will write the data to the `miflora_log.txt` file on the SD card.
+After booting and syncing the time, the Pico will scan for the sensor. Once it takes a reading, it will create or append to a file on the SD card named after the **current date**.
 
-The output will look like this:
+For example, all readings taken on October 30, 2025, will be saved in a file named `2025-10-30.txt`.
+
+The output inside the file will look like this:
 ```
-2025-10-23T20:30:05,Temp:28.5,Light:150,Moisture:45,Conductivity:350,Battery:88
-2025-10-23T20:30:35,Temp:28.5,Light:152,Moisture:45,Conductivity:350,Battery:88
-2025-10-23T20:31:04,Temp:28.4,Light:149,Moisture:45,Conductivity:349,Battery:88
+2025-10-30T08:30:05,Temp:28.5,Light:150,Moisture:45,Conductivity:350,Battery:88
+2025-10-30T09:00:12,Temp:28.5,Light:152,Moisture:45,Conductivity:350,Battery:88
+2025-10-30T09:30:07,Temp:28.4,Light:149,Moisture:45,Conductivity:349,Battery:88
 ```
 
 ## Dependencies & Acknowledgements
