@@ -2,6 +2,7 @@
  * Miflora Sensor (BLE) for Raspberry Pi Pico W
  * * With SD Card Datalogging and Timestamps!
  * * Also acts as a peripheral to allow RTC syncing.
+ * * Also exposes a BLE service to read log files directly from the SD card.
  */ 
 
 #include <stdio.h>

@@ -15,6 +15,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Saves data to daily log files (e.g., `2025-10-30.txt`) on an SD card.
 * Adds an ISO 8601 timestamp (e.g., `2025-10-23T20:30:00`) to each reading using the Pico's internal Real-Time Clock (RTC).
 * Acts as a BLE peripheral (server) to allow remote time-syncing of the RTC. **This step is mandatory before logging will start**.
+* Exposes a BLE service to read log files directly from the SD card.
 
 ## Hardware Required
 
@@ -23,6 +24,15 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * MicroSD card module (SPI)
 * MicroSD card (formatted as FAT32)
 * A smartphone with an example companion app: [Flutter MiFlora Companion App](https://github.com/IoT-gamer/flutter_miflora_companion_app/tree/main)
+
+## Reading Log Data
+
+In addition to logging, the device can act as a file server over BLE.
+The [companion app](https://github.com/IoT-gamer/flutter_miflora_companion_app) can request log files by date.
+
+The device exposes two new characteristics on its `0xAAA0` service:
+* **Command Characteristic (`0xAAA2`):** A `WRITE` characteristic. The app writes a command like `GET:2025-10-31.txt` to it.
+* **Data Characteristic (`0xAAA3`):** A `NOTIFY` characteristic. The Pico reads the file from the SD card and streams its contents back to the app in chunks.
 
 ## Wiring
 

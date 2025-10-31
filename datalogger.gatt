@@ -1,7 +1,7 @@
 // Datalogger Service Definition
 //
 // This service allows a connected client (e.g., a phone)
-// to configure the datalogger.
+// to configure the datalogger and transfer data.
 
 // Custom Datalogger Service
 PRIMARY_SERVICE, 0xAAA0
@@ -10,3 +10,11 @@ PRIMARY_SERVICE, 0xAAA0
 // Allows a client to write 7 bytes to set the RTC
 // Format: [Year_H, Year_L, Month, Day, Hour, Min, Sec]
 CHARACTERISTIC, 0xAAA1, WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
+
+// Command Characteristic (App -> Pico)
+// App writes commands here (e.g., "LIST" or "GET:2025-10-30.txt")
+CHARACTERISTIC, 0xAAA2, WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
+
+// Data Characteristic (Pico -> App)
+// Pico sends data back in chunks (e.g., file contents or file list)
+CHARACTERISTIC, 0xAAA3, NOTIFY | DYNAMIC,
