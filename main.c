@@ -10,7 +10,8 @@
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
-#include "hardware/rtc.h" 
+#include "hardware/rtc.h"
+#include "hardware/gpio.h"
 
 // --- Project Modules ---
 #include "miflora_client.h"
@@ -41,6 +42,11 @@ static void server_timeout_handler(struct btstack_timer_source *ts);
 static void enter_server_mode(void);
 static void start_scan_handler(struct btstack_timer_source *ts);
 
+// --- Pump Control Definitions ---
+static const uint PUMP_GPIO_PIN = 16; // <<< CHOOSE A FREE GPIO PIN
+static const uint32_t PUMP_DURATION_MS = 5000; // 5 seconds
+static btstack_timer_source_t pump_off_timer;
+static bool is_pump_on = false;
 
 /**
  * @brief Handler for the short delay after stopping ADV.
@@ -222,6 +228,36 @@ static void heartbeat_handler(struct btstack_timer_source *ts) {
     btstack_run_loop_add_timer(ts); 
 }
 
+/**
+ * @brief Timer callback to turn the pump OFF after the duration
+ */
+static void pump_off_handler(struct btstack_timer_source *ts) {
+    UNUSED(ts);
+    gpio_put(PUMP_GPIO_PIN, 0); // Turn pump OFF
+    is_pump_on = false;
+    printf("Pump OFF.\n");
+}
+
+/**
+ * @brief Public function to turn the pump ON
+ * (Called from ble_server.c)
+ */
+void start_pump(void) {
+    if (is_pump_on) {
+        printf("Pump command ignored, already running.\n");
+        return;
+    }
+
+    printf("Pump ON for %lu ms\n", PUMP_DURATION_MS);
+    is_pump_on = true;
+    gpio_put(PUMP_GPIO_PIN, 1); // Turn pump ON
+
+    // Set and start the one-shot timer to turn it off
+    btstack_run_loop_set_timer_handler(&pump_off_timer, pump_off_handler);
+    btstack_run_loop_set_timer(&pump_off_timer, PUMP_DURATION_MS);
+    btstack_run_loop_add_timer(&pump_off_timer);
+}
+
 int main() {
     stdio_init_all();
     sleep_ms(2000); // Wait for stdio
@@ -230,6 +266,12 @@ int main() {
     printf("Initializing RTC...\n");
     rtc_init(); 
     printf("RTC initialized. Waiting for time sync from app...\n");
+    // ------------------------------------
+
+    // --- Initialize Pump GPIO ---
+    gpio_init(PUMP_GPIO_PIN);
+    gpio_set_dir(PUMP_GPIO_PIN, GPIO_OUT);
+    gpio_put(PUMP_GPIO_PIN, 0); // Ensure pump is off at start
     // ------------------------------------
 
     printf("--- Pico W Miflora Datalogger ---\n");

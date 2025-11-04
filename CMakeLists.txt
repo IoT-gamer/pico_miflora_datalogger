@@ -87,6 +87,7 @@ target_link_libraries(pico_miflora_datalogger
         hardware_dma
         hardware_spi
         no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
+        hardware_gpio
 )
 
 target_include_directories(pico_miflora_datalogger PRIVATE

@@ -1,7 +1,5 @@
 # Pico-W MiFlora BLE Datalogger
 
-[![Work in Progress](https://img.shields.io/badge/status-work%20in%20progress-yellow)](https://example.com/your-project-status-page)
-
 This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora plant sensor. It operates in two modes:
 
 1. **Client Mode:** (After time-sync) Scans for the sensor via BLE, reads its data (temperature, moisture, light, conductivity, and battery), and logs it to a text file on an SD card with a timestamp.
@@ -16,6 +14,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Adds an ISO 8601 timestamp (e.g., `2025-10-23T20:30:00`) to each reading using the Pico's internal Real-Time Clock (RTC).
 * Acts as a BLE peripheral (server) to allow remote time-syncing of the RTC. **This step is mandatory before logging will start**.
 * Exposes a BLE service to read log files directly from the SD card.
+* Exposes a BLE command to trigger an attached relay (e.g., for a water pump) for a short duration.
 
 ## Hardware Required
 
@@ -23,6 +22,7 @@ This project turns a Raspberry Pi Pico W into a datalogger for a Xiaomi Miflora 
 * Xiaomi MiFlora plant sensor
 * MicroSD card module (SPI)
 * MicroSD card (formatted as FAT32)
+* Relay module
 * A smartphone with an example companion app: [Flutter MiFlora Companion App](https://github.com/IoT-gamer/flutter_miflora_companion_app/tree/main)
 
 ## Reading Log Data
@@ -35,6 +35,8 @@ The device exposes two new characteristics on its `0xAAA0` service:
 * **Data Characteristic (`0xAAA3`):** A `NOTIFY` characteristic. The Pico reads the file from the SD card and streams its contents back to the app in chunks.
 
 ## Wiring
+
+### SD Card
 
 Use `hw_config.c` to configure the pins for your SD card module.
 The default setting is configured to use `spi1` for the SD card .
@@ -50,6 +52,16 @@ Connect your SD card reader to the following `spi1` pins:
 | VCC | `3V3_OUT` (3.3V) or `VBUS` (5V)* |
 | GND | GND |
 *Note: Some SD card modules require 5V power. Check your module's specifications.
+
+### Relay Module
+
+Connect your relay module (assuming `PUMP_GPIO_PIN` is 16 in `main.c`):
+
+| Relay Pin | Pico Pin (GPIO) |
+| :--- | :--- |
+| `IN` (Signal) | `GPIO 16` |
+| `VCC` | `3V3(OUT)` (or `VBUS` for 5V modules) |
+| `GND` | `GND` |
 
 ## How to Use
 

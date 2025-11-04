@@ -15,6 +15,7 @@ static bool rtc_is_synced = false;
 static FIL streaming_file;
 static bool is_streaming = false;
 static btstack_timer_source_t stream_timer;
+extern void start_pump(void); // From main.c
 
 // Define our advertisement data
 static uint8_t adv_data[] = {
@@ -238,6 +239,9 @@ static int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_h
         if (strncmp(command_buffer, "GET:", 4) == 0) {
             const char* filename = command_buffer + 4;
             start_streaming_file(filename);
+        } else if (strncmp(command_buffer, "PUMP", 4) == 0) {
+            printf("PUMP command received.\n");
+            start_pump(); // Call the function from main.c
         } else if (strncmp(command_buffer, "LIST", 4) == 0) {
             // TODO: Implement file listing
             printf("File listing not yet implemented.\n");
